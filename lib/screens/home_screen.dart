@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_products/models/models.dart';
+import 'package:flutter_products/screens/screens.dart';
+import 'package:flutter_products/services/services.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
   static String route = 'home';
@@ -7,16 +11,32 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final productService = Provider.of<ProductsService>(context);
+
+    if (productService.isLoading) {
+      return LoadingScreen();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Productos'),
       ),
       body: ListView.builder(
-        itemBuilder: (BuildContext context, int index) => ProductCard(),
-        itemCount: 10,
+        itemBuilder: (BuildContext context, int index) => GestureDetector(
+            onTap: () {
+              productService.selectedProduct =
+                  productService.products[index].copy();
+              Navigator.pushNamed(context, 'product');
+            },
+            child: ProductCard(product: productService.products[index])),
+        itemCount: productService.products.length,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          productService.selectedProduct =
+              Product(available: false, price: 0, name: '');
+          Navigator.pushNamed(context, ProductScreen.route);
+        },
         child: Icon(Icons.add),
       ),
     );
@@ -25,7 +45,9 @@ class HomeScreen extends StatelessWidget {
 
 // TODO: Separar
 class ProductCard extends StatelessWidget {
-  const ProductCard({Key? key}) : super(key: key);
+  final Product product;
+
+  const ProductCard({Key? key, required this.product}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -38,16 +60,31 @@ class ProductCard extends StatelessWidget {
         decoration: _cardBordersDecoration(),
         child: Stack(
           children: [
-            _BackgroundImage(),
+            _BackgroundImage(
+              imageUrl: product.picture,
+            ),
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
-              child: _ProductDetails(),
+              child: _ProductDetails(
+                product: product,
+              ),
             ),
-            Positioned(top: 0, right: 0, child: _PriceTag()),
+            Positioned(
+                top: 0,
+                right: 0,
+                child: _PriceTag(
+                  price: product.price,
+                )),
             // TODO: Mostrar de manera condicional
-            Positioned(top: 0, left: 0, child: _NotAvailable())
+            if (!product.available)
+              Positioned(
+                  top: 0,
+                  left: 0,
+                  child: _NotAvailable(
+                    isAvailable: product.available,
+                  ))
           ],
         ),
       ),
@@ -65,8 +102,11 @@ class ProductCard extends StatelessWidget {
 }
 
 class _NotAvailable extends StatelessWidget {
+  final bool isAvailable;
+
   const _NotAvailable({
     Key? key,
+    required this.isAvailable,
   }) : super(key: key);
 
   @override
@@ -77,7 +117,7 @@ class _NotAvailable extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 10),
           child: Text(
-            'No disponible',
+            isAvailable ? 'Disponible' : 'No disponible',
             style: TextStyle(color: Colors.white, fontSize: 20),
           ),
         ),
@@ -93,8 +133,11 @@ class _NotAvailable extends StatelessWidget {
 }
 
 class _PriceTag extends StatelessWidget {
+  final double price;
+
   const _PriceTag({
     Key? key,
+    required this.price,
   }) : super(key: key);
 
   @override
@@ -112,7 +155,7 @@ class _PriceTag extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Text(
-            '\$10343.99',
+            '\$$price',
             style: TextStyle(color: Colors.white, fontSize: 20),
           ),
         ),
@@ -122,8 +165,11 @@ class _PriceTag extends StatelessWidget {
 }
 
 class _BackgroundImage extends StatelessWidget {
+  final String? imageUrl;
+
   const _BackgroundImage({
     Key? key,
+    this.imageUrl,
   }) : super(key: key);
 
   @override
@@ -135,7 +181,9 @@ class _BackgroundImage extends StatelessWidget {
         height: 400,
         child: FadeInImage(
           placeholder: AssetImage('assets/no-image.png'),
-          image: NetworkImage('https://via.placeholder.com/400x300/f6f6f6'),
+          image: imageUrl == null
+              ? AssetImage('assets/no-image.png') as ImageProvider
+              : NetworkImage(imageUrl!),
           fit: BoxFit.cover,
         ),
       ),
@@ -144,7 +192,9 @@ class _BackgroundImage extends StatelessWidget {
 }
 
 class _ProductDetails extends StatelessWidget {
-  const _ProductDetails({Key? key}) : super(key: key);
+  final Product product;
+
+  const _ProductDetails({Key? key, required this.product}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +208,7 @@ class _ProductDetails extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Disco duro G',
+              product.name,
               style: TextStyle(
                   fontSize: 20,
                   color: Colors.white,
@@ -167,7 +217,7 @@ class _ProductDetails extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              'Id del disco duro',
+              product.id != null ? product.id.toString() : '-',
               style: TextStyle(fontSize: 15, color: Colors.white),
             ),
           ],
